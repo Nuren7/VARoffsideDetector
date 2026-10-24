@@ -1,7 +1,7 @@
 import os 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+import re
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from dotenv import load_dotenv
 
 #load env from .env
@@ -13,20 +13,26 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
   raise ValueError("Database URL not found. Please set the DATABASE_URL environment variable.")
 
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
+#convert the DATABASE_URL to use asyncpg for asynchronous operations
+async_database_url = re.sub(r"^postgresql://", "postgresql+asyncpg://", DATABASE_URL)
 
-#create session local to handle temporary sessions
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create the SQLAlchemy engine
+engine = create_async_engine(async_database_url, echo=True)
+
+# Create a sessionmaker for creating database sessions
+AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 # Create a base class for declarative models
 Base = declarative_base()
 
-def get_db():
+def get_db() -> AsyncSession:
   """Dependency to get a database session."""
-  db = SessionLocal()
-  try:
-    yield db
-  finally:
-    db.close()
-    
+  async with AsyncSessionLocal() as session:
+    try:
+      yield session
+      await session.commit()
+    except Exception as e:
+      await session.rollback()
+      raise e
+    finally:
+      await session.close()
