@@ -1,5 +1,6 @@
 import os 
 import re
+from typing import AsyncIterator
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from dotenv import load_dotenv
@@ -13,8 +14,10 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
   raise ValueError("Database URL not found. Please set the DATABASE_URL environment variable.")
 
-#convert the DATABASE_URL to use asyncpg for asynchronous operations
-async_database_url = re.sub(r"^postgresql://", "postgresql+asyncpg://", DATABASE_URL)
+# Use the async psycopg driver, which is installed by requirements.txt.
+async_database_url = re.sub(
+  r"^postgres(?:ql)?://", "postgresql+psycopg://", DATABASE_URL
+)
 
 # Create the SQLAlchemy engine
 engine = create_async_engine(async_database_url, echo=True)
@@ -25,14 +28,11 @@ AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_
 # Create a base class for declarative models
 Base = declarative_base()
 
-def get_db() -> AsyncSession:
+async def get_db() -> AsyncIterator[AsyncSession]:
   """Dependency to get a database session."""
   async with AsyncSessionLocal() as session:
     try:
       yield session
-      await session.commit()
     except Exception as e:
       await session.rollback()
       raise e
-    finally:
-      await session.close()

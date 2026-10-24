@@ -17,7 +17,7 @@ onnx>=1.16.0
 onnxruntime>=1.19.0
 
 # Databas (Neon) & Miljövariabler
-psycopg2-binary>=2.9.9
+psycopg[binary]>=3.1.0
 SQLAlchemy>=2.0.30
 python-dotenv>=1.0.1
 

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Import custom modules
 from app.database.connection import get_db
 from app.database.models import VideoAnalysis
-from app.services.storage import upload_video_to_cloud
+from app.services.storage import upload_video_to_cloudinary
 
 # (AI modules can be integrated later when ready)
 # from app.ai.detector import FootballDetector
@@ -52,7 +52,6 @@ async def upload_and_process_video(
         db_record = VideoAnalysis(
             filename=file.filename, 
             status="pending",
-            offside_detected=False
         )
         db.add(db_record)
         await db.commit()
@@ -70,12 +69,11 @@ async def upload_and_process_video(
             shutil.copy(temp_input_path, temp_output_path)
         
         # Upload the result to cloud storage (Cloudinary)
-        ai_video_url = upload_video_to_cloud(temp_output_path)
+        ai_video_url = upload_video_to_cloudinary(temp_output_path)
     
         # Update the database with the result
         db_record.ai_video_url = ai_video_url
         db_record.status = "completed"
-        db_record.offside_detected = True  # Set to True for demonstration purposes
         await db.commit()
     
         return {
@@ -89,7 +87,7 @@ async def upload_and_process_video(
     except Exception as e:
         # If an error occurs, update status to Failed in the database
         if "db_record" in locals():
-            db_record.status = "Failed"
+            db_record.status = "failed"
             await db.commit()
             
         raise HTTPException(
