@@ -21,8 +21,17 @@ class OffsideAnalyzer:
     # Get video properties
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(self.output_video_path, fourcc, self.fps, (width, height))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0 or np.isnan(fps):
+      fps = self.fps  # fallback to default fps if unable to get from video
+      
+    #avc1 for broader compatibility, mp4v for mp4
+    fourcc = cv2.VideoWriter_fourcc(*"avc1")  # or "mp4v" for .mp4
+    out = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
+    
+    if not out.isOpened():
+      fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # fallback to mp4v
+      out = cv2.VideoWriter(self.output_video_path, fourcc, fps, (width, height))
     
     frame_index = 0
 

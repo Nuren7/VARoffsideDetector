@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import custom modules
-from app.database.connection import get_db
+from app.database.connection import get_db, init_db
 from app.database.models import VideoAnalysis
 from app.services.storage import upload_video_to_cloudinary
 
@@ -20,6 +20,10 @@ app = FastAPI(
     description="A FastAPI application for detecting offside situations in football videos using AI.", 
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
 
 # Configure CORS to allow the frontend to access the backend
 app.add_middleware(
@@ -114,9 +118,13 @@ async def upload_and_process_video(
     except Exception as e:
         # If an error occurs, update status to Failed in the database
         if "db_record" in locals():
-            db_record.status = "failed"
-            await db.commit()
-            
+            try:
+                await db.rollback()
+                db_record.status = "failed"
+                await db.commit()
+            except Exception:
+                await db.rollback()
+
         raise HTTPException(
             status_code=500, 
             detail=f"An error occurred during AI processing: {e}"
