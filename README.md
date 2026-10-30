@@ -6,10 +6,10 @@ VAR Offside Detector is a football computer-vision project that analyses match f
 
 ## Features
 
-- Detects people and sports balls frame by frame with Ultralytics YOLO (COCO classes `0` and `32`).
+- Detects people and sports balls with Ultralytics YOLO (COCO classes `0` and `32`); ball detection uses a lower confidence threshold and larger inference size for small balls.
 - Extracts bounding boxes and confidence scores; keeps the highest-confidence ball detection in each frame.
-- Crops players' upper bodies and uses K-Means to explore jersey-colour grouping.
-- Annotates video with player boxes, ball position, and a candidate offside line.
+- Clusters upper-body jersey colors across the whole video so team IDs remain consistent between players and frames.
+- Annotates player/team boxes, detected balls, the ball-relative second-last-opponent line, and players in a candidate offside position.
 
 ## Technology and deployment
 
@@ -48,6 +48,7 @@ pip install -r requirements.txt
 ```
 
 Place `yolo11n.pt` in `backend/weights/`. The detector uses the relative path `weights/yolo11n.pt`, so run it from the `backend` directory.
+Set `ATTACKING_DIRECTION=left` in `backend/.env` when the attacking team moves toward the left side of the video; the default is `right`.
 
 ### Frontend
 
@@ -59,7 +60,7 @@ npm run dev
 
 ## Limitations
 
-The offside line is a visual estimate based on image coordinates and team assignments; it is not a complete rule-based decision. Reliable analysis also requires consistent player tracking, team identification, the moment the ball is played, field perspective, and player involvement. Detection and clustering may be affected by occlusion, lighting, and camera quality.
+The output is a visual position estimate, not an offside decision. Team IDs are color clusters and do not identify club names. The attacking team is estimated from the player nearest the detected ball; if the ball is not detected or two defenders cannot be identified, no candidate line is drawn for that frame. The halfway line is approximated by the image center, and player bounding boxes do not distinguish arms from legal scoring body parts. The system does not yet track players or identify the exact teammate touch, deliberate opponent plays, rebounds, or active involvement. Camera perspective, occlusion, similar jersey colors, lighting, and ball size can all reduce accuracy; use calibrated footage and a ball/player model trained for the footage for stronger results.
 
 ## Disclaimer
 

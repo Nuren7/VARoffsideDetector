@@ -1,6 +1,5 @@
 import os
 import shutil
-import cv2
 from fastapi import FastAPI, UploadFile, Depends, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,33 +65,16 @@ async def upload_and_process_video(
         detector = FotballDetector()
         raw_data = detector.process_video(temp_input_path)
         
-        # 4. AI Pipeline Step 2: Classify teams per frame using K-means
+        # 4. AI Pipeline Step 2: Fit team colors together for stable IDs.
         team_classifier = Teamclassifier(n_clusters=2)
-        player_teams = []
-        
-        cap_analysis = cv2.VideoCapture(temp_input_path)
-        frame_idx = 0
-        
-        try:
-            while cap_analysis.isOpened():
-                success, frame = cap_analysis.read()
-                if not success:
-                    break
-                    
-                frame_teams = {}
-                if frame_idx < len(raw_data):
-                    players = raw_data[frame_idx].get("players", [])
-                    for i, player in enumerate(players):
-                        team_id = team_classifier.classify_player(frame, player["bbox"])
-                        frame_teams[i] = team_id
-                        
-                player_teams.append(frame_teams)
-                frame_idx += 1
-        finally:
-            cap_analysis.release()
+        player_teams = team_classifier.classify_video(temp_input_path, raw_data)
         
         # 5. AI Pipeline Step 3: Draw offside lines and generate final video
-        analyzer = OffsideAnalyzer(output_video_path=temp_output_path)
+        attacking_direction = os.getenv("ATTACKING_DIRECTION", "right").lower()
+        analyzer = OffsideAnalyzer(
+            output_video_path=temp_output_path,
+            attacking_direction=attacking_direction,
+        )
         analyzer.process_and_draw(temp_input_path, raw_data, player_teams)
         
         # Fallback om filen mot förmodan inte skapades

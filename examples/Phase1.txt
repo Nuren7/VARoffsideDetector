@@ -1,0 +1,7 @@
+#This is the first example phase.
+
+First ever successfull deployment:
+- https://res.cloudinary.com/iovs8eti/video/upload/v1793055349/offside_detector_results/rnoo5l6rvhoqljppp5ug.mp4
+Notes:
+- The offline line is out of place
+- The player detection works but not team detection.
