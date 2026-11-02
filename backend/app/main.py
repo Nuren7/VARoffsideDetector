@@ -3,6 +3,7 @@ import os
 import shutil
 from fastapi import FastAPI, UploadFile, Depends, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import custom modules
@@ -26,11 +27,16 @@ app = FastAPI(
 async def startup_event():
     await init_db()
 
-# Configure CORS to allow the frontend to access the backend
+frontend_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this to your frontend's origin in production
-    allow_credentials=True,
+    allow_origins=frontend_origins or ["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -140,6 +146,21 @@ async def upload_and_process_video(
             "status": "SUCCESS",
         }
         
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        print(
+            f"[database] Database operation failed for {file.filename}: {e}",
+            flush=True,
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The database connection was interrupted. The database is "
+                "configured to reconnect automatically; please retry the upload."
+            ),
+        ) from e
     except Exception as e:
         print(f"[processing] Analysis failed for {file.filename}: {e}", flush=True)
         # If an error occurs, update status to Failed in the database

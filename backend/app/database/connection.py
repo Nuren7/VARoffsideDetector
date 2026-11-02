@@ -23,8 +23,13 @@ async_database_url = re.sub(
   r"^postgres(?:ql)?://", "postgresql+psycopg://", DATABASE_URL
 )
 
-# Create the SQLAlchemy engine
-engine = create_async_engine(async_database_url, echo=True)
+# Validate connections when checking them out, since Neon may close idle pooled
+# connections while the application is not using the database.
+engine = create_async_engine(
+  async_database_url,
+  echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+  pool_pre_ping=True,
+)
 
 # Create a sessionmaker for creating database sessions
 AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
