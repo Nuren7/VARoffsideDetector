@@ -7,9 +7,11 @@ VAR Offside Detector is a football computer-vision project that analyses match f
 ## Features
 
 - Detects people and sports balls with Ultralytics YOLO (COCO classes `0` and `32`); ball detection uses a lower confidence threshold and larger inference size for small balls.
+- Tracks detections between frames with ByteTrack and smooths tracked boxes and candidate lines with short temporal median filters.
 - Extracts bounding boxes and confidence scores; keeps the highest-confidence ball detection in each frame.
-- Clusters upper-body jersey colors across the whole video so team IDs remain consistent between players and frames.
-- Annotates player/team boxes, detected balls, the ball-relative second-last-opponent line, and players in a candidate offside position.
+- Clusters upper-body jersey colors across the whole video and assigns team IDs per player track to reduce label flicker.
+- Can map player footpoints to pitch coordinates with a per-frame homography and draw the candidate line in perspective.
+- Freezes a candidate line and the attacking players' positions at a heuristic ball-release event instead of deciding again on every frame.
 
 ## Technology and deployment
 
@@ -48,7 +50,27 @@ pip install -r requirements.txt
 ```
 
 Place `yolo11n.pt` in `backend/weights/`. The detector uses the relative path `weights/yolo11n.pt`, so run it from the `backend` directory.
-Set `ATTACKING_DIRECTION=left` in `backend/.env` when the attacking team moves toward the left side of the video; the default is `right`.
+
+Team 0 is configured to attack right by default, and team 1 attacks left. Set `TEAM_0_ATTACKING_DIRECTION=left` in `backend/.env` to reverse them. Team IDs are assigned in a consistent order based on the clustered jersey colors, but do not represent club names; check that team 0 is the team moving right in your clip.
+
+### Pitch calibration
+
+Without pitch calibration, the detector falls back to image coordinates and draws a vertical screen-space line. This fallback cannot correct camera perspective. For a fixed camera, create a JSON calibration file containing at least four matching, visible pitch landmarks:
+
+```json
+{
+  "pitch_length_m": 105,
+  "pitch_width_m": 68,
+  "image_points": [[120, 140], [1100, 100], [1300, 650], [40, 700]],
+  "pitch_points_m": [[0, 0], [105, 0], [105, 68], [0, 68]]
+}
+```
+
+Replace the example image coordinates with the actual pixel positions of the corresponding pitch landmarks in your video, in the same order. Then set `PITCH_CALIBRATION_PATH=path\\to\\your-calibration.json` in `backend/.env`. A fixed homography is only suitable while the camera remains still.
+
+For broadcast footage or a moving camera, use a YOLO pose/keypoint model trained to return pitch landmarks. Set `PITCH_MODEL_PATH=weights\\your-pitch-keypoints.pt` and provide `PITCH_KEYPOINTS_JSON` as a JSON object mapping that model's keypoint indices to pitch coordinates, for example `{"0":[0,0],"1":[105,0],"2":[105,68],"3":[0,68]}`. The model's keypoint order and coordinates must match the mapping; no pitch keypoint model is bundled with this repository. A detected homography is smoothed across frames and briefly reused when a frame has too few visible landmarks.
+
+Optional pitch dimensions can be set with `PITCH_LENGTH_M` and `PITCH_WIDTH_M`; the defaults are 105 m by 68 m. The detected ball's lower bounding-box point is used as an approximate ground contact point, so an airborne ball can still introduce error.
 
 ### Frontend
 
@@ -60,7 +82,7 @@ npm run dev
 
 ## Limitations
 
-The output is a visual position estimate, not an offside decision. Team IDs are color clusters and do not identify club names. The attacking team is estimated from the player nearest the detected ball; if the ball is not detected or two defenders cannot be identified, no candidate line is drawn for that frame. The halfway line is approximated by the image center, and player bounding boxes do not distinguish arms from legal scoring body parts. The system does not yet track players or identify the exact teammate touch, deliberate opponent plays, rebounds, or active involvement. Camera perspective, occlusion, similar jersey colors, lighting, and ball size can all reduce accuracy; use calibrated footage and a ball/player model trained for the footage for stronger results.
+The output is a visual position estimate, not an offside decision. The ball-release event is heuristic, not a confirmed teammate touch; it cannot reliably distinguish deliberate opponent play, deflections, rebounds, or active involvement. A pitch homography is only as good as the supplied landmarks/model and is invalid for image regions outside the visible pitch. A person detector cannot reliably distinguish referees from players or goalkeepers from outfield players, so jersey clustering can misclassify them. Tracking can still lose or switch IDs during occlusion or crowded scenes. Player feet and the ball's lower bounding-box point approximate their ground positions; bounding boxes do not identify legal scoring body parts. Similar jersey colors, lighting, camera movement, and ball size can all reduce accuracy.
 
 ## Disclaimer
 

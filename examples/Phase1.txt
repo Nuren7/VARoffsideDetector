@@ -5,3 +5,7 @@ First ever successfull deployment:
 Notes:
 - The offline line is out of place
 - The player detection works but not team detection.
+
+Second:
+-https://res.cloudinary.com/iovs8eti/video/upload/v1793392331/offside_detector_results/t3di6zkohnpefoyvym8t.mp4
+-Still very shakey

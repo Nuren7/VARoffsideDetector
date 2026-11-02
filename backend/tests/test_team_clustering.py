@@ -30,8 +30,8 @@ class TeamClusteringTests(unittest.TestCase):
                 frame_data.append(
                     {
                         "players": [
-                            {"bbox": [20, 10, 60, 90]},
-                            {"bbox": [100, 10, 140, 90]},
+                            {"bbox": [20, 10, 60, 90], "track_id": 100},
+                            {"bbox": [100, 10, 140, 90], "track_id": 200},
                         ]
                     }
                 )
